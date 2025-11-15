@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+
+{% block title %}Notifications - MyLegalAdvisor{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="bg-white rounded-2xl shadow-xl p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-800">Notifications</h2>
+            {% if notifications %}
+                <form method="post" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" name="mark_all_read" class="text-indigo-600 hover:text-indigo-800 font-semibold">
+                        Mark all as read
+                    </button>
+                </form>
+            {% endif %}
+        </div>
+
+        {% if notifications %}
+            <div class="space-y-4">
+                {% for notification in notifications %}
+                    <div class="p-4 rounded-lg border {% if not notification.is_read %}bg-blue-50 border-blue-200{% else %}bg-gray-50 border-gray-200{% endif %} relative notification-item" data-id="{{ notification.id }}" data-read="{{ notification.is_read|yesno:'1,0' }}">
+                        {% if not notification.is_read %}
+                            <div class="absolute top-2 right-2">
+                                <span class="bg-blue-500 rounded-full w-2 h-2 block"></span>
+                            </div>
+                        {% endif %}
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <p class="text-gray-800">{{ notification.message }}</p>
+                                <p class="text-sm text-gray-500 mt-1">{{ notification.created_at|timesince }} ago</p>
+                            </div>
+                            {% if not notification.is_read %}
+                                <button class="ml-4 text-indigo-600 hover:text-indigo-800 text-sm mark-single-read" data-id="{{ notification.id }}">
+                                    Mark as read
+                                </button>
+                            {% endif %}
+                        </div>
+                        {% if notification.type == 'appointment_update' and notification.related_id %}
+                            <div class="mt-2">
+                                <a href="{% url 'appointment_detail' notification.related_id %}" class="text-indigo-600 hover:text-indigo-800 text-sm font-semibold">
+                                    View Appointment →
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="text-center py-8">
+                <p class="text-gray-600">No notifications yet.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+<script>
+// When notification item or its 'Mark as read' button clicked, send AJAX to mark read and update UI
+document.addEventListener('DOMContentLoaded', function(){
+    function markAsReadAjax(id){
+        fetch(`/notifications/mark-read/${id}/`, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        }).then(r => r.json()).then(data => {
+            if (data.success){
+                const el = document.querySelector(`.notification-item[data-id='${id}']`);
+                if (el){
+                    el.dataset.read = '1';
+                    el.classList.remove('bg-blue-50');
+                    el.classList.add('bg-gray-50');
+                    const badge = el.querySelector('.absolute.top-2.right-2');
+                    if (badge) badge.remove();
+                    const btn = el.querySelector('.mark-single-read');
+                    if (btn) btn.remove();
+                }
+                // Optionally update navbar badge by reloading page or making another endpoint
+                location.reload();
+            }
+        }).catch(err => console.error(err));
+    }
+
+    document.querySelectorAll('.mark-single-read').forEach(btn => {
+        btn.addEventListener('click', function(e){
+            const id = this.dataset.id;
+            markAsReadAjax(id);
+        });
+    });
+
+    // Clicking on a notification item (not links) should mark it read
+    document.querySelectorAll('.notification-item').forEach(item => {
+        item.addEventListener('click', function(e){
+            // Ignore clicks on links/buttons inside the item
+            if (e.target.closest('a') || e.target.closest('button')) return;
+            const id = this.dataset.id;
+            if (this.dataset.read === '1') return; // already read
+            markAsReadAjax(id);
+        });
+    });
+});
+</script>
+{% endblock %}

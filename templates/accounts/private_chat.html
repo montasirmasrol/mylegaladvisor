@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+
+{% block title %}Chat with {{ other_user.username }} - MyLegalAdvisor{% endblock %}
+
+{% block content %}
+<div id="chat-app" class="max-w-4xl mx-auto" data-room-id="{{ room.id|default:'' }}" data-username="{{ user.username|default:'' }}">
+    <div class="bg-white rounded-2xl shadow-xl p-6">
+        <div class="flex items-center gap-4 mb-6">
+            {% if other_user.lawyer_profile.photo %}
+                <img src="{{ other_user.lawyer_profile.photo.url }}" alt="Photo" class="w-16 h-16 rounded-full object-cover">
+            {% elif other_user.user_profile.photo %}
+                <img src="{{ other_user.user_profile.photo.url }}" alt="Photo" class="w-16 h-16 rounded-full object-cover">
+            {% else %}
+                <div class="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 font-bold text-2xl">{{ other_user.username|first|upper }}</div>
+            {% endif %}
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800">{{ other_user.get_full_name|default:other_user.username }}</h1>
+                <p class="text-gray-600">{{ other_user.get_user_type_display }}</p>
+            </div>
+        </div>
+        
+        <div id="chat-container" class="bg-gray-50 rounded-lg p-4 h-96 overflow-y-auto mb-4 border border-gray-200">
+            <!-- Messages are rendered by JS to avoid duplication with polling -->
+        </div>
+        
+        <form id="chat-form" class="flex gap-2" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="text" id="message-input" placeholder="Type your message..." class="flex-1 px-4 py-2 border border-gray-300 rounded-lg" >
+            <input type="file" id="attachment-input" name="attachment" class="border border-gray-300 rounded-lg p-2" accept="image/*,video/*,application/pdf">
+            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-semibold transition-colors">Send</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Read values from data attributes to avoid embedding Django template tags inside JS
+    const chatApp = document.getElementById('chat-app');
+    const roomId = chatApp ? (chatApp.dataset.roomId || null) : null;
+    const currentUsername = chatApp ? (chatApp.dataset.username || '') : '';
+    let lastMessageId = 0; // start from zero and let JS load messages (prevents duplicate rendering)
+    
+    function addMessage(id, sender, message, time, isOwn, attachment_url, attachment_type) {
+        const container = document.getElementById('chat-container');
+        // prevent duplicate rendering of same message
+        if (document.getElementById('msg-' + id)) return;
+        const div = document.createElement('div');
+        div.id = 'msg-' + id;
+        div.className = `mb-3 p-3 ${isOwn ? 'bg-indigo-100 ml-auto text-right' : 'bg-white'} rounded-lg shadow-sm max-w-md animate-fade-in`;
+        div.innerHTML = `
+            <div class="flex justify-between items-start mb-1">
+                <strong class="${isOwn ? 'text-indigo-700' : 'text-indigo-600'}">${sender}</strong>
+                <span class="text-xs text-gray-500">${time}</span>
+            </div>
+            <p class="text-gray-700">${message}</p>
+            ${attachment_url ? (attachment_type === 'image' ? `<div class="mt-2"><img src="${attachment_url}" class="max-w-xs rounded"></div>` : `<div class="mt-2"><a href="${attachment_url}" class="text-indigo-600">Download attachment</a></div>`) : ''}
+        `;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+    }
+    
+    function loadMessages() {
+        if (!roomId) return;
+        fetch(`/chat/messages/${roomId}/?last_id=${lastMessageId}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.messages && data.messages.length > 0) {
+                    // if initial load (lastMessageId==0), clear container to avoid duplicates
+                    if (lastMessageId === 0) document.getElementById('chat-container').innerHTML = '';
+                    data.messages.forEach(msg => {
+                        const isOwn = msg.sender === currentUsername;
+                        addMessage(msg.id, msg.sender, msg.message, msg.created_at.split(' ')[1], isOwn, msg.attachment_url || null, msg.attachment_type || null);
+                        lastMessageId = Math.max(lastMessageId, msg.id);
+                    });
+                }
+            })
+            .catch(err => console.error('Error loading messages:', err));
+    }
+    
+    document.getElementById('chat-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        if (!roomId) return;
+        const message = document.getElementById('message-input').value.trim();
+        const attachmentInput = document.getElementById('attachment-input');
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        if (message) formData.append('message', message);
+        if (attachmentInput && attachmentInput.files && attachmentInput.files[0]){
+            formData.append('attachment', attachmentInput.files[0]);
+        }
+
+        fetch(`/chat/send/${roomId}/`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('message-input').value = '';
+                if (document.getElementById('attachment-input')) document.getElementById('attachment-input').value = '';
+                loadMessages();
+            } else if (data.error) {
+                console.error('Error sending message:', data.error);
+            }
+        })
+        .catch(err => console.error('Error sending message:', err));
+    });
+    
+    // Poll for new messages every 2 seconds
+    setInterval(loadMessages, 2000);
+    loadMessages();
+</script>
+{% endblock %}
+

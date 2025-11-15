@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+
+{% block title %}Lawyers - MyLegalAdvisor{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>All Lawyers</h2>
+    <form method="get" style="margin-top: 1rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+        <label for="category">Category:</label>
+        <select id="category" name="category">
+            <option value="" {% if not selected_category %}selected{% endif %}>All</option>
+            <option value="criminal" {% if selected_category == 'criminal' %}selected{% endif %}>Criminal Law</option>
+            <option value="civil" {% if selected_category == 'civil' %}selected{% endif %}>Civil Law</option>
+            <option value="family" {% if selected_category == 'family' %}selected{% endif %}>Family Law</option>
+            <option value="corporate" {% if selected_category == 'corporate' %}selected{% endif %}>Corporate Law</option>
+            <option value="immigration" {% if selected_category == 'immigration' %}selected{% endif %}>Immigration Law</option>
+            <option value="tax" {% if selected_category == 'tax' %}selected{% endif %}>Tax Law</option>
+            <option value="employment" {% if selected_category == 'employment' %}selected{% endif %}>Employment Law</option>
+            <option value="real_estate" {% if selected_category == 'real_estate' %}selected{% endif %}>Real Estate Law</option>
+            <option value="personal_injury" {% if selected_category == 'personal_injury' %}selected{% endif %}>Personal Injury Law</option>
+            <option value="other" {% if selected_category == 'other' %}selected{% endif %}>Other</option>
+        </select>
+        <button type="submit" class="btn btn-secondary">Filter</button>
+    </form>
+
+    {% if lawyer_profiles %}
+        <div class="relative overflow-hidden mt-8">
+            <div class="flex transition-transform duration-500" id="lawyer-carousel">
+                {% for item in lawyer_profiles %}
+                    <div class="w-full md:w-1/3 lg:w-1/4 flex-shrink-0 px-4">
+                        <div class="bg-white rounded-xl shadow-lg p-6 transform hover:scale-105 transition-transform">
+                            <h3 class="text-xl text-indigo-600 font-semibold mb-2">{{ item.lawyer.get_full_name|default:item.lawyer.username }}</h3>
+                            {% if item.profile and item.profile.photo %}
+                                <img src="{{ item.profile.photo.url }}" alt="Lawyer Photo" class="w-full h-48 object-cover rounded-lg mb-4">
+                            {% endif %}
+                            {% if item.profile %}
+                                <p class="text-gray-600 mb-2"><strong>Type:</strong> {{ item.profile.get_lawyer_type_display }}</p>
+                                <p class="text-gray-600 mb-2"><strong>Experience:</strong> {{ item.profile.experience_years }} years</p>
+                            {% endif %}
+                            <div class="text-yellow-500 mb-4">
+                                {% with rating=item.avg_rating|default:0|floatformat:0|add:0 %}
+                                    {% for i in "12345" %}
+                                        {% if forloop.counter <= rating %}
+                                            ★
+                                        {% else %}
+                                            ☆
+                                        {% endif %}
+                                    {% endfor %}
+                                    <span class="text-gray-500 ml-2">({{ item.avg_rating|default:0|floatformat:1 }})</span>
+                                {% endwith %}
+                            </div>
+                            <a href="{% url 'public_lawyer_detail' item.lawyer.id %}" class="inline-block w-full text-center bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors">View Details</a>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            <button onclick="moveCarousel(-1)" class="absolute left-0 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-2 rounded-full shadow-lg">←</button>
+            <button onclick="moveCarousel(1)" class="absolute right-0 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-2 rounded-full shadow-lg">→</button>
+        </div>
+        
+        <script>
+            let currentPosition = 0;
+            const carousel = document.getElementById('lawyer-carousel');
+            const itemWidth = carousel.children[0].offsetWidth;
+            const totalItems = carousel.children.length;
+            
+            function moveCarousel(direction) {
+                const maxPosition = -(totalItems - 3) * itemWidth;
+                currentPosition += direction * itemWidth;
+                
+                if (currentPosition > 0) {
+                    currentPosition = maxPosition;
+                } else if (currentPosition < maxPosition) {
+                    currentPosition = 0;
+                }
+                
+                carousel.style.transform = `translateX(${currentPosition}px)`;
+            }
+            
+            // Auto-scroll every 5 seconds
+            setInterval(() => moveCarousel(1), 5000);
+        </script>
+    {% else %}
+        <p class="mt-8 text-gray-600 text-center">No lawyers found.</p>
+    {% endif %}
+</div>
+{% endblock %}
+
+

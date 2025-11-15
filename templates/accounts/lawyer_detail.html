@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ lawyer.get_full_name|default:lawyer.username }} - MyLegalAdvisor{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Lawyer Profile</h2>
+    <div style="margin-top: 2rem;">
+        <h3 style="color: #3498db; margin-bottom: 1rem;">
+            {{ lawyer.get_full_name|default:lawyer.username }}
+        </h3>
+        {% if profile and profile.photo %}
+            <img src="{{ profile.photo.url }}" alt="Lawyer Photo" style="width: 200px; height: 200px; object-fit: cover; border-radius: 8px; margin-bottom: 1rem;" />
+        {% endif %}
+        {% if profile %}
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-top: 1rem;">
+                <div>
+                    <p><strong>Lawyer Type:</strong> {{ profile.get_lawyer_type_display }}</p>
+                    <p><strong>Experience:</strong> {{ profile.experience_years }} years</p>
+                    {% if profile.phone_number %}
+                        <p><strong>Phone:</strong> {{ profile.phone_number }}</p>
+                    {% endif %}
+                    {% if profile.address %}
+                        <p><strong>Address:</strong> {{ profile.address }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% if profile.bio %}
+                <div style="margin-top: 2rem;">
+                    <h4 style="color: #3498db; margin-bottom: 0.5rem;">Bio</h4>
+                    <p style="color: #666; line-height: 1.8;">{{ profile.bio }}</p>
+                </div>
+            {% endif %}
+        {% else %}
+            <p style="color: #666;">No profile information available</p>
+        {% endif %}
+    </div>
+
+    <div style="margin-top: 1rem; color: #999;">Average rating: {{ avg_rating|default:0|floatformat:1 }}/5</div>
+
+    {% if rating_form %}
+        <div class="card" style="margin-top: 2rem;">
+            <h3 style="margin-bottom: 1rem; color: #3498db;">Rate this Lawyer</h3>
+            <form method="post">
+                {% csrf_token %}
+                {{ rating_form.rating }}
+                <div class="form-group" style="margin-top: 0.5rem;">
+                    <label for="id_comment">Comment (optional)</label>
+                    {{ rating_form.comment }}
+                </div>
+                <button type="submit" name="rate_lawyer" class="btn">Submit Rating</button>
+            </form>
+        </div>
+    {% endif %}
+
+    <div class="card" style="margin-top: 2rem;">
+        <h3 style="margin-bottom: 1rem; color: #3498db;">Recent Ratings</h3>
+        {% if ratings %}
+            <ul style="list-style: none; padding: 0;">
+                {% for r in ratings %}
+                    <li style="margin-bottom: 0.75rem;">
+                        <strong>{{ r.user.get_full_name|default:r.user.username }}</strong> - {{ r.rating }}/5<br>
+                        <span style="color: #666;">{{ r.comment }}</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p style="color: #666;">No ratings yet.</p>
+        {% endif %}
+    </div>
+
+    <div class="card" style="margin-top: 2rem;">
+        <h3 style="margin-bottom: 1rem; color: #3498db;">Request Appointment</h3>
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="id_appointment_date">Appointment Date</label>
+                {{ appointment_form.appointment_date }}
+            </div>
+            <div class="form-group">
+                <label for="id_appointment_time">Appointment Time</label>
+                {{ appointment_form.appointment_time }}
+            </div>
+            <div class="form-group">
+                <label for="id_message">Message (Optional)</label>
+                {{ appointment_form.message }}
+            </div>
+            <button type="submit" name="make_appointment" class="btn">Request Appointment</button>
+        </form>
+    </div>
+
+    <div style="margin-top: 1rem;">
+        <a href="{% url 'lawyer_list' %}" class="btn btn-secondary">Back to Lawyers List</a>
+    </div>
+</div>
+{% endblock %}
+

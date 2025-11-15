@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block title %}Chat - MyLegalAdvisor{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="bg-white rounded-2xl shadow-xl p-6">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6">Select User to Chat</h1>
+        {% if chat_users %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {% for chat_user in chat_users %}
+                    <a href="{% url 'private_chat_with' chat_user.id %}" class="block bg-gradient-to-r from-indigo-50 to-purple-50 hover:from-indigo-100 hover:to-purple-100 p-4 rounded-lg transition-all transform hover:scale-105">
+                        <div class="flex items-center gap-4">
+                            {% if chat_user.lawyer_profile.photo %}
+                                <img src="{{ chat_user.lawyer_profile.photo.url }}" alt="Photo" class="w-16 h-16 rounded-full object-cover">
+                            {% elif chat_user.user_profile.photo %}
+                                <img src="{{ chat_user.user_profile.photo.url }}" alt="Photo" class="w-16 h-16 rounded-full object-cover">
+                            {% else %}
+                                <div class="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 font-bold">{{ chat_user.username|first|upper }}</div>
+                            {% endif %}
+                            <div>
+                                <h3 class="font-bold text-gray-800">{{ chat_user.get_full_name|default:chat_user.username }}</h3>
+                                <p class="text-sm text-gray-600">{{ chat_user.get_user_type_display }}</p>
+                            </div>
+                        </div>
+                    </a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-gray-600 text-center py-8">No users available to chat with.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
