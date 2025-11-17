@@ -369,15 +369,13 @@ def appointment_detail(request, appointment_id):
 
 
 def send_appointment_email(appointment, action):
-    """Send email notification to user about appointment status"""
+    """Send email notification to user and lawyer about appointment status"""
     if action == 'accepted':
         # Check if email is configured
         if not settings.EMAIL_HOST_USER:
             print("WARNING: EMAIL_HOST_USER is not configured. Email will not be sent.")
             print("Please configure EMAIL_HOST_USER and EMAIL_HOST_PASSWORD in settings.py")
             return False
-        
-        subject = f'Appointment Accepted - {appointment.lawyer.get_full_name() or appointment.lawyer.username}'
         
         lawyer_name = appointment.lawyer.get_full_name() or appointment.lawyer.username
         user_name = appointment.user.get_full_name() or appointment.user.username
@@ -392,8 +390,10 @@ Please click the link at your appointment time to join the online consultation."
             meeting_info = f"""
 This is an offline consultation. Please visit the lawyer's office at the scheduled time.
 Address: {appointment.lawyer.lawyer_profile.address}"""
-            
-        message = f"""Hello {user_name},
+        
+        # Email to USER
+        user_subject = f'Appointment Accepted - {lawyer_name}'
+        user_message = f"""Hello {user_name},
 
 Great news! Your appointment request has been accepted by {lawyer_name}.
 
@@ -412,22 +412,59 @@ If you have any questions or need to reschedule, please contact your lawyer.
 Best regards,
 MyLegalAdvisor Team"""
         
-        recipient_list = [appointment.user.email]
-        from_email = settings.EMAIL_HOST_USER  # Use the configured email as sender
+        # Email to LAWYER
+        lawyer_subject = f'Appointment Confirmation - {user_name}'
+        lawyer_message = f"""Hello {lawyer_name},
+
+You have accepted an appointment with {user_name}.
+
+Appointment Details:
+- Date: {appointment.appointment_date}
+- Time: {appointment.appointment_time}
+- Client: {user_name}
+- Client Email: {appointment.user.email}
+- Consultation Type: {appointment.get_consultation_type_display()}
+{meeting_info}
+
+Please be available at the scheduled time.
+
+Best regards,
+MyLegalAdvisor Team"""
+        
+        from_email = settings.EMAIL_HOST_USER
+        
+        # Send email to user
+        user_email_sent = False
+        lawyer_email_sent = False
         
         try:
             send_mail(
-                subject,
-                message,
+                user_subject,
+                user_message,
                 from_email,
-                recipient_list,
+                [appointment.user.email],
                 fail_silently=False,
             )
-            print(f"Email sent successfully to {appointment.user.email}")
-            return True
+            print(f"Email sent successfully to user: {appointment.user.email}")
+            user_email_sent = True
         except Exception as e:
-            print(f"Error sending email to {appointment.user.email}: {e}")
-            return False
+            print(f"Error sending email to user {appointment.user.email}: {e}")
+        
+        # Send email to lawyer
+        try:
+            send_mail(
+                lawyer_subject,
+                lawyer_message,
+                from_email,
+                [appointment.lawyer.email],
+                fail_silently=False,
+            )
+            print(f"Email sent successfully to lawyer: {appointment.lawyer.email}")
+            lawyer_email_sent = True
+        except Exception as e:
+            print(f"Error sending email to lawyer {appointment.lawyer.email}: {e}")
+        
+        return user_email_sent or lawyer_email_sent
     return False
 
 
