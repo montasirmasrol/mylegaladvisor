@@ -39,7 +39,12 @@
                 {% for item in top_lawyer_profiles %}
                     <div class="lawyer-card bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105 opacity-0" data-delay="{{ forloop.counter0|add:'0.1' }}">
                         {% if item.profile and item.profile.photo %}
-                            <img src="{{ item.profile.photo.url }}" alt="Lawyer Photo" class="w-full h-48 object-cover rounded-lg mb-3">
+                            <!-- <img src="{{ item.profile.photo.url }}" alt="Lawyer Photo" class="w-full h-48 object-cover rounded-lg mb-3"> -->
+                             <div class="w-40 h-40 mx-auto mb-3 rounded-full bg-white overflow-hidden flex items-center justify-center shadow">
+                                <img src="{{ item.profile.photo.url }}" alt="Lawyer Photo"
+                                    class="w-full h-full object-contain rounded-full">
+                            </div>
+
                         {% else %}
                             <div class="w-full h-48 bg-gray-300 rounded-lg mb-3 flex items-center justify-center text-gray-500">No Photo</div>
                         {% endif %}
