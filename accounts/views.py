@@ -505,12 +505,11 @@ def private_chat(request, user_id=None):
             user1_id=user1_id,
             user2_id=user2_id,
         )
-        messages_list = room.messages.all()[:50]
         return render(request, 'accounts/private_chat.html', {
             'room': room,
             'other_user': other_user,
-            'messages': messages_list,
         })
+
     
     # List of users/lawyers to chat with
     if request.user.is_superuser:
@@ -593,10 +592,8 @@ def public_chat(request):
         return redirect('login')
 
     room, created = ChatRoom.objects.get_or_create(room_type='public', defaults={'user1': None, 'user2': None})
-    messages_list = room.messages.all()[:50]
     return render(request, 'accounts/public_chat.html', {
         'room': room,
-        'messages': messages_list,
     })
 
 
