@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Save } from 'lucide-react';
+import { User, Save, ArrowLeft } from 'lucide-react';
 import { profileApi } from '../api';
+import { getApiErrorMessage } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../hooks/useToast';
 import type { LawyerProfile, UserProfile } from '../types';
@@ -18,6 +19,9 @@ const lawyerTypes = [
   { value: 'personal_injury', label: 'Personal Injury Law' },
   { value: 'other', label: 'Other' },
 ];
+
+const LAWYER_PROFILE_FIELDS = ['lawyer_type', 'bio', 'experience_years', 'phone_number', 'address'] as const;
+const USER_PROFILE_FIELDS = ['phone_number', 'address', 'date_of_birth'] as const;
 
 export default function ProfilePage() {
   const { user, refreshUser } = useAuth();
@@ -56,12 +60,14 @@ export default function ProfilePage() {
     const form = new FormData();
     Object.entries(userFields).forEach(([k, v]) => form.append(k, v));
     if (profileType === 'lawyer') {
-      Object.entries(lawyerProfile).forEach(([k, v]) => {
-        if (k !== 'photo_url' && k !== 'lawyer_type_display' && v != null) form.append(k, String(v));
+      LAWYER_PROFILE_FIELDS.forEach((k) => {
+        const v = lawyerProfile[k];
+        if (v != null && v !== '') form.append(k, String(v));
       });
     } else {
-      Object.entries(userProfile).forEach(([k, v]) => {
-        if (k !== 'photo_url' && v != null) form.append(k, String(v));
+      USER_PROFILE_FIELDS.forEach((k) => {
+        const v = userProfile[k];
+        if (v != null && v !== '') form.append(k, String(v));
       });
     }
     if (photo) form.append('photo', photo);
@@ -69,8 +75,8 @@ export default function ProfilePage() {
       const { data } = await profileApi.update(form);
       show(data.message);
       await refreshUser();
-    } catch {
-      show('Failed to update profile', 'error');
+    } catch (err) {
+      show(getApiErrorMessage(err, 'Failed to update profile'), 'error');
     } finally {
       setSaving(false);
     }
@@ -89,7 +95,17 @@ export default function ProfilePage() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
       {Toast}
-      <h1 className="mb-8 text-3xl font-bold text-slate-900">My Profile</h1>
+      <div className="mb-8">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">My Profile</h1>
+            <p className="mt-1 text-sm text-slate-500">Update your account details and profile information.</p>
+          </div>
+          <button type="button" onClick={() => navigate(-1)} className="btn-secondary w-full sm:w-auto">
+            <ArrowLeft className="h-4 w-4" /> Back
+          </button>
+        </div>
+      </div>
       <form onSubmit={handleSubmit} className="card space-y-6">
         <div className="flex items-center gap-4">
           {photoUrl ? (
@@ -167,9 +183,14 @@ export default function ProfilePage() {
           </>
         )}
 
-        <button type="submit" disabled={saving} className="btn-primary">
-          <Save className="h-4 w-4" /> {saving ? 'Saving...' : 'Save Changes'}
-        </button>
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button type="button" onClick={() => navigate(-1)} disabled={saving} className="btn-secondary w-full sm:w-auto">
+            <ArrowLeft className="h-4 w-4" /> Back
+          </button>
+          <button type="submit" disabled={saving} className="btn-primary w-full sm:w-auto">
+            <Save className="h-4 w-4" /> {saving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
       </form>
     </div>
   );

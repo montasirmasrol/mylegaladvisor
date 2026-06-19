@@ -1,4 +1,5 @@
 import logging
+import threading
 from django.contrib.auth import authenticate, login, logout
 from django.core.mail import send_mail
 from django.conf import settings
@@ -27,6 +28,39 @@ from accounts.views import send_appointment_email
 logger = logging.getLogger(__name__)
 
 LAWYER_TYPE_LABELS = dict(LawyerProfile.LAWYER_TYPE_CHOICES)
+
+
+def _apply_profile_photo(profile_obj, request):
+    photo = request.FILES.get('photo')
+    if photo:
+        profile_obj.photo = photo
+        profile_obj.save(update_fields=['photo'])
+
+
+def _normalize_profile_data(data):
+    normalized = data.copy()
+    if normalized.get('date_of_birth') == '':
+        normalized['date_of_birth'] = None
+    return normalized
+
+
+def _finalize_accepted_appointment(appointment_id):
+    """Create Meet link and send confirmation emails without blocking the API response."""
+    try:
+        appointment = Appointment.objects.select_related('lawyer', 'user').get(id=appointment_id)
+        if appointment.consultation_type == 'online' and not appointment.meeting_link:
+            from accounts.google_meet import create_meet_link
+            try:
+                meet_link, event_id = create_meet_link(appointment)
+                if meet_link and event_id:
+                    appointment.meeting_link = meet_link
+                    appointment.google_event_id = event_id
+                    appointment.save(update_fields=['meeting_link', 'google_event_id'])
+            except Exception as e:
+                logger.error(f"Google Meet error: {e}")
+        send_appointment_email(appointment, 'accepted')
+    except Exception as e:
+        logger.error(f"Background accept processing failed: {e}")
 
 
 def _lawyer_to_dict(lawyer, avg_rating=None):
@@ -112,10 +146,11 @@ def profile_view(request):
                 'profile': LawyerProfileSerializer(profile_obj).data,
                 'profile_type': 'lawyer',
             })
-        form_data = request.data.copy()
+        form_data = _normalize_profile_data(request.data)
         serializer = LawyerProfileSerializer(profile_obj, data=form_data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        _apply_profile_photo(profile_obj, request)
         for field in ('first_name', 'last_name', 'email'):
             if field in request.data:
                 setattr(user, field, request.data[field])
@@ -133,9 +168,11 @@ def profile_view(request):
             'profile': UserProfileSerializer(profile_obj).data,
             'profile_type': 'user',
         })
-    serializer = UserProfileSerializer(profile_obj, data=request.data, partial=True)
+    form_data = _normalize_profile_data(request.data)
+    serializer = UserProfileSerializer(profile_obj, data=form_data, partial=True)
     serializer.is_valid(raise_exception=True)
     serializer.save()
+    _apply_profile_photo(profile_obj, request)
     for field in ('first_name', 'last_name', 'email'):
         if field in request.data:
             setattr(user, field, request.data[field])
@@ -297,27 +334,18 @@ def appointment_detail_api(request, appointment_id):
         action = request.data.get('action')
         if action == 'accept':
             appointment.status = 'accepted'
-            if appointment.consultation_type == 'online':
-                from accounts.google_meet import create_meet_link
-                try:
-                    appointment.save()
-                    meet_link, event_id = create_meet_link(appointment)
-                    if meet_link and event_id:
-                        appointment.meeting_link = meet_link
-                        appointment.google_event_id = event_id
-                    appointment.save()
-                except Exception as e:
-                    logger.error(f"Google Meet error: {e}")
-                    appointment.save()
-            else:
-                appointment.save()
+            appointment.save()
             Notification.objects.create(
                 user=appointment.user,
                 type='appointment_update',
                 message=f'Your appointment with {appointment.lawyer.get_full_name()} has been accepted.',
                 related_id=appointment.id,
             )
-            send_appointment_email(appointment, 'accepted')
+            threading.Thread(
+                target=_finalize_accepted_appointment,
+                args=(appointment.id,),
+                daemon=True,
+            ).start()
             return Response({'message': 'Appointment accepted!', 'appointment': AppointmentSerializer(appointment).data})
         if action == 'reject':
             appointment.status = 'rejected'

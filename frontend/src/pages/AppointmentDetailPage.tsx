@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Calendar, Clock, Video, MapPin, FileText, Check, X, Upload, ExternalLink } from 'lucide-react';
+import { Calendar, Clock, Video, MapPin, FileText, Check, X, Upload, ExternalLink, ArrowLeft } from 'lucide-react';
 import { appointmentApi } from '../api';
+import { getApiErrorMessage } from '../api/client';
 import { useToast } from '../hooks/useToast';
 import type { Appointment, CaseFile } from '../types';
 
@@ -13,6 +14,7 @@ export default function AppointmentDetailPage() {
   const [canUpload, setCanUpload] = useState(false);
   const [canManage, setCanManage] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<'accept' | 'reject' | null>(null);
   const [files, setFiles] = useState<FileList | null>(null);
 
   const load = () => {
@@ -30,13 +32,18 @@ export default function AppointmentDetailPage() {
   useEffect(load, [id]);
 
   const handleAction = async (action: 'accept' | 'reject') => {
+    setActionLoading(action);
     try {
       const fn = action === 'accept' ? appointmentApi.accept : appointmentApi.reject;
       const { data } = await fn(Number(id));
       show(data.message);
+      setAppointment(data.appointment);
+      setCanManage(false);
       load();
-    } catch {
-      show('Action failed', 'error');
+    } catch (err) {
+      show(getApiErrorMessage(err, 'Action failed'), 'error');
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -48,8 +55,8 @@ export default function AppointmentDetailPage() {
       show(data.message);
       setFiles(null);
       load();
-    } catch {
-      show('Upload failed', 'error');
+    } catch (err) {
+      show(getApiErrorMessage(err, 'Upload failed'), 'error');
     }
   };
 
@@ -68,7 +75,9 @@ export default function AppointmentDetailPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       {Toast}
-      <Link to="/appointments" className="mb-6 inline-block text-sm text-primary hover:underline">← Back to appointments</Link>
+      <Link to="/appointments" className="btn-secondary mb-6 inline-flex w-full sm:w-auto">
+        <ArrowLeft className="h-4 w-4" /> Back to appointments
+      </Link>
 
       <div className="card mb-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -108,12 +117,29 @@ export default function AppointmentDetailPage() {
             <ExternalLink className="h-4 w-4" /> Join Google Meet
           </a>
         )}
+        {appointment.status === 'accepted' && appointment.consultation_type === 'online' && !appointment.meeting_link && (
+          <p className="mt-4 text-sm text-slate-500">Meeting link is being generated. Refresh this page in a moment.</p>
+        )}
       </div>
 
       {canManage && appointment.status === 'pending' && (
         <div className="card mb-6 flex gap-3">
-          <button onClick={() => handleAction('accept')} className="btn-primary flex-1"><Check className="h-4 w-4" /> Accept</button>
-          <button onClick={() => handleAction('reject')} className="flex-1 rounded-xl border border-red-200 bg-red-50 px-5 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-100"><X className="inline h-4 w-4" /> Reject</button>
+          <button
+            onClick={() => handleAction('accept')}
+            disabled={actionLoading !== null}
+            className="btn-primary flex-1 disabled:opacity-60"
+          >
+            <Check className="h-4 w-4" />
+            {actionLoading === 'accept' ? 'Accepting...' : 'Accept'}
+          </button>
+          <button
+            onClick={() => handleAction('reject')}
+            disabled={actionLoading !== null}
+            className="flex-1 rounded-xl border border-red-200 bg-red-50 px-5 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-100 disabled:opacity-60"
+          >
+            <X className="inline h-4 w-4" />
+            {actionLoading === 'reject' ? 'Rejecting...' : 'Reject'}
+          </button>
         </div>
       )}
 

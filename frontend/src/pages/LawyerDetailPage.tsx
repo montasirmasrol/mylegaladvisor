@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Star, User, MapPin, Phone, Calendar, MessageSquare, Award } from 'lucide-react';
+import { Star, User, MapPin, Phone, Calendar, MessageSquare, Award, ArrowLeft } from 'lucide-react';
 import { lawyerApi } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../hooks/useToast';
@@ -77,6 +77,9 @@ export default function LawyerDetailPage() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       {Toast}
+      <Link to="/lawyers" className="btn-secondary mb-6 inline-flex w-full sm:w-auto">
+        <ArrowLeft className="h-4 w-4" /> Back to lawyers
+      </Link>
       <div className="grid gap-8 lg:grid-cols-3">
         {/* Profile */}
         <div className="lg:col-span-1">

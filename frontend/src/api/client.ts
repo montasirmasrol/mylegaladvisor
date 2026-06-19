@@ -29,4 +29,18 @@ export async function fetchCsrfToken() {
   await axios.get('/api/auth/me/', { withCredentials: true });
 }
 
+export function getApiErrorMessage(err: unknown, fallback: string): string {
+  const data = (err as { response?: { data?: Record<string, unknown> } })?.response?.data;
+  if (!data) return fallback;
+  if (typeof data.error === 'string') return data.error;
+  if (typeof data.message === 'string') return data.message;
+  if (typeof data.detail === 'string') return data.detail;
+  const messages: string[] = [];
+  for (const [key, val] of Object.entries(data)) {
+    if (Array.isArray(val)) messages.push(`${key}: ${val.join(', ')}`);
+    else if (typeof val === 'string') messages.push(val);
+  }
+  return messages.length ? messages.join('; ') : fallback;
+}
+
 export default api;

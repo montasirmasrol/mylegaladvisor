@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { MessageSquare, User, ChevronRight } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { MessageSquare, User, ChevronRight, ArrowLeft } from 'lucide-react';
 import { chatApi } from '../api';
 import type { ChatUser } from '../types';
 
 export default function ChatListPage() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState<ChatUser[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -16,9 +17,14 @@ export default function ChatListPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900">Messages</h1>
-        <p className="mt-2 text-slate-500">Select a conversation to start chatting</p>
+      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Messages</h1>
+          <p className="mt-2 text-slate-500">Select a conversation to start chatting</p>
+        </div>
+        <button type="button" onClick={() => navigate(-1)} className="btn-secondary w-full sm:w-auto">
+          <ArrowLeft className="h-4 w-4" /> Back
+        </button>
       </div>
 
       {loading ? (

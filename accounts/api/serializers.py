@@ -40,6 +40,7 @@ class LawyerProfileSerializer(serializers.ModelSerializer):
             'lawyer_type', 'lawyer_type_display', 'bio', 'experience_years',
             'phone_number', 'address', 'photo', 'photo_url',
         ]
+        read_only_fields = ['photo', 'photo_url', 'lawyer_type_display']
 
     def get_photo_url(self, obj):
         return obj.photo.url if obj.photo else None
@@ -51,6 +52,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
         fields = ['phone_number', 'address', 'date_of_birth', 'photo', 'photo_url']
+        read_only_fields = ['photo', 'photo_url']
 
     def get_photo_url(self, obj):
         return obj.photo.url if obj.photo else None
